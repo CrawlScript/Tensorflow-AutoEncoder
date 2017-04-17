@@ -6,6 +6,10 @@ AutoEncoder implemented in Tensorflow
 + python 2.7+
 + Tensorflow >0.10.0 
 
+Some tutorials require:
+
++ Matplotlib
+
 
 ### Tutorial
 
