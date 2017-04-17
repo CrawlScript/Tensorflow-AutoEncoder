@@ -1,3 +1,4 @@
+from mpl_toolkits.mplot3d import Axes3D
 from autoencoder import AutoEncoder, DataIterator
 import codecs
 from random import shuffle
@@ -51,7 +52,15 @@ print encoded_datas
 #visualize encoded datas
 colors = ["red", "green", "blue"]
 label_colors = [colors[label_id] for label_id in labels]
-plt.scatter(encoded_datas[:,0], encoded_datas[:,1], color = label_colors)
+
+fig_3d =plt.figure("origin iris data")
+plot_3d = fig_3d.add_subplot(111, projection='3d')
+plot_3d.scatter(datas[:,0], datas[:,1], datas[:, 2], color = label_colors)
+
+fig_2d = plt.figure("encoded iris data")
+plot_2d = fig_2d.add_subplot(111)
+plot_2d.scatter(encoded_datas[:,0], encoded_datas[:,1], color = label_colors)
+
 plt.show()
 
 

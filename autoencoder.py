@@ -40,7 +40,7 @@ class AutoEncoder(object):
             neuron_counts, 
             ite,
             learning_rate = 0.01,
-            keep_prob = 0.95,
+            keep_prob = 1.0,
             max_epoch = 1000,
             cost_listener = default_cost_listener
             ):
