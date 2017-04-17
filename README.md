@@ -48,5 +48,7 @@ autoencoder.close()
 ```
 
 ### Iris Example
-[tutorial_iris.py]()
 
+[tutorial_iris.py](https://github.com/CrawlScript/Tensorflow-AutoEncoder/blob/master/tutorial_iris.py) encodes iris datasets(3 features) to a 2 features datasets.
+
+![](https://raw.githubusercontent.com/CrawlScript/Tensorflow-AutoEncoder/master/tutorial_datasets/iris/imgs/iris.png)
