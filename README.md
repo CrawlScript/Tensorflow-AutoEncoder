@@ -44,9 +44,9 @@ print "decoder ================"
 print decoded_datas
 
 # reconstruct data (encode and decode data)
-output_datas = autoencoder.output(datas)
+reconstructed_datas = autoencoder.reconstruct(datas)
 print "reconstruct ================"
-print output_datas
+print reconstructed_datas
 
 autoencoder.close()
 ```
@@ -55,7 +55,16 @@ autoencoder.close()
 
 [tutorial_iris.py](https://github.com/CrawlScript/Tensorflow-AutoEncoder/blob/master/tutorial_iris.py) encodes iris datasets(3 features) to a 2 features datasets.
 
-<table><tr><td style="width:50%;">Origin Iris Data (3 features)</td><td style="width:50%;">Encoded Iris Data(2 features)</td></tr>
-<tr><td><img src="https://raw.githubusercontent.com/CrawlScript/Tensorflow-AutoEncoder/master/tutorial_datasets/iris/imgs/origin_iris_data.png"></img></td><td><img src="https://raw.githubusercontent.com/CrawlScript/Tensorflow-AutoEncoder/master/tutorial_datasets/iris/imgs/encoded_iris_data.png"></img></td></tr>
+<table>
+<tr>
+<td>Origin Iris Data (3 features)</td>
+<td>Encoded Iris Data(2 features)</td>
+<td>Fine Tuned Encoded Iris Data(2 features)</td>
+</tr>
+<tr>
+<td><img src="https://raw.githubusercontent.com/CrawlScript/Tensorflow-AutoEncoder/master/tutorial_datasets/iris/imgs/origin_iris_data.png"></img></td>
+<td><img src="https://raw.githubusercontent.com/CrawlScript/Tensorflow-AutoEncoder/master/tutorial_datasets/iris/imgs/encoded_iris_data.png"></img></td>
+<td><img src="https://raw.githubusercontent.com/CrawlScript/Tensorflow-AutoEncoder/master/tutorial_datasets/iris/imgs/tuned_encoded_iris_data.png"></img></td>
+</tr>
 </table>
 

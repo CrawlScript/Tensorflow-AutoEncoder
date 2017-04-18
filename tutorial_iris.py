@@ -23,7 +23,7 @@ class IrisDataSet(object):
         shuffle(str_datas)
         self.datas = [[float(d) for d in row_data[0:-1]] for row_data in str_datas]
         # normalize datas
-        self.datas = np.array(self.datas, dtype = np.float64)
+        self.datas = np.array(self.datas, dtype = np.float32)
         self.datas = self.datas/self.datas.max(0)
 
         self.labels = [self.get_label_id(row_data[-1]) for row_data in str_datas]
@@ -34,20 +34,50 @@ datas = iris_dataset.datas
 labels = iris_dataset.labels
 
 # data wrapper
-iterator = DataIterator(datas)
+iterator = DataIterator(datas, labels = labels)
 
 # train autoencoder
 # assume the input dimension is input_d
 # the network is like input_d -> 4 -> 2 -> 4 -> input_d
 autoencoder = AutoEncoder()
-autoencoder.fit([4, 2], iterator, learning_rate = 0.02, max_epoch = 10000)
+# train autoencoder without fine-tuning
+print "\ntrain autoencoder without fine-tuning ==========\n"
+autoencoder.fit([4, 2], 
+		iterator, 
+		learning_rate = 0.02, 
+		max_epoch = 10000, 
+		)
 
-# after training
-
-# encode data
+# encode data (without fine-tuning)
 encoded_datas = autoencoder.encode(datas)
-print "encoder ================"
+print "encoder (without fine-tuning) ================"
 print encoded_datas 
+
+# train autoencoder with fine-tuning
+print "\ntrain autoencoder with fine-tuning ==========\n"
+autoencoder.fit([4, 2], 
+		iterator, 
+		fine_tuning = True,
+		learning_rate = 0.02, 
+		max_epoch = 5000, 
+		fine_tuning_max_epoch = 4000)
+
+# encode data (with fine-tuning)
+tuned_encoded_datas = autoencoder.encode(datas)
+print "encoder (with fine-tuning)================"
+print tuned_encoded_datas 
+
+# predict data( based on fine tuning )
+predicted_datas = autoencoder.predict(datas)
+print "predicted ================"
+print predicted_datas
+predicted_labels = predicted_datas.argmax(1)
+eval_array = (predicted_labels == labels)
+correct_count = len(np.where(eval_array == True)[0])
+error_count = len(np.where(eval_array == False)[0])
+correct_rate = float(correct_count)/(correct_count + error_count)
+error_rate = float(error_count)/(correct_count + error_count)
+print "correct: {}({})\terror: {}({})".format(correct_count, "%.2f" % correct_rate, error_count, "%.2f" % error_rate)
 
 #visualize encoded datas
 colors = ["red", "green", "blue"]
@@ -57,9 +87,13 @@ fig_3d =plt.figure("origin iris data")
 plot_3d = fig_3d.add_subplot(111, projection='3d')
 plot_3d.scatter(datas[:,0], datas[:,1], datas[:, 2], color = label_colors)
 
-fig_2d = plt.figure("encoded iris data")
+fig_2d = plt.figure("encoded iris data (without fine-tuning)")
 plot_2d = fig_2d.add_subplot(111)
 plot_2d.scatter(encoded_datas[:,0], encoded_datas[:,1], color = label_colors)
+
+fig_tuned_2d = plt.figure("encoded iris data (with fine-tuning)")
+plot_tuned_2d = fig_tuned_2d.add_subplot(111)
+plot_tuned_2d.scatter(tuned_encoded_datas[:,0], tuned_encoded_datas[:,1], color = label_colors)
 
 plt.show()
 

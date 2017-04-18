@@ -28,8 +28,8 @@ print "decoder ================"
 print decoded_datas
 
 # reconstruct data (encode and decode data)
-output_datas = autoencoder.output(datas)
+reconstructed_datas = autoencoder.reconstruct(datas)
 print "reconstruct ================"
-print output_datas
+print reconstructed_datas
 
 autoencoder.close()
