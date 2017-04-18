@@ -59,12 +59,14 @@ autoencoder.close()
 <tr>
 <td>Origin Iris Data (3 features)</td>
 <td>Encoded Iris Data(2 features)</td>
-<td>Fine Tuned Encoded Iris Data(2 features)</td>
 </tr>
 <tr>
 <td><img src="https://raw.githubusercontent.com/CrawlScript/Tensorflow-AutoEncoder/master/tutorial_datasets/iris/imgs/origin_iris_data.png"></img></td>
 <td><img src="https://raw.githubusercontent.com/CrawlScript/Tensorflow-AutoEncoder/master/tutorial_datasets/iris/imgs/encoded_iris_data.png"></img></td>
-<td><img src="https://raw.githubusercontent.com/CrawlScript/Tensorflow-AutoEncoder/master/tutorial_datasets/iris/imgs/tuned_encoded_iris_data.png"></img></td>
 </tr>
+
+<tr><td colspan="2">Fine Tuned Encoded Iris Data(2 features)</td></tr>
+<tr><td colspan="2"><img src="https://raw.githubusercontent.com/CrawlScript/Tensorflow-AutoEncoder/master/tutorial_datasets/iris/imgs/tuned_encoded_iris_data.png"></img></td></tr>
+
 </table>
 
