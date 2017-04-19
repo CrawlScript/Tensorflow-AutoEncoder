@@ -35,13 +35,14 @@ datas = iris_dataset.datas
 labels = iris_dataset.labels
 
 # data wrapper
-iterator = DataIterator(datas, labels = labels)
+iterator = DataIterator(datas)
+fine_tuning_iterator = DataIterator(datas, labels = labels)
 
 # train autoencoder
 # assume the input dimension is input_d
 # the network is like input_d -> 4 -> 2 -> 4 -> input_d
 autoencoder = AutoEncoder([4, 2], learning_rate = 0.02, 
-                        fine_tuning = True, class_num = iterator.class_num,
+                        fine_tuning = True, class_num = fine_tuning_iterator.class_num,
                         fine_tuning_learning_rate = 0.02)
 
 # train autoencoder without fine-tuning
@@ -55,7 +56,7 @@ print encoded_datas
 
 # train autoencoder with fine-tuning
 print "\ntrain autoencoder with fine-tuning ==========\n"
-autoencoder.fine_tune(iterator, max_epoch = 6000)
+autoencoder.fine_tune(fine_tuning_iterator, max_epoch = 6000)
 
 # encode data (with fine-tuning)
 tuned_encoded_datas = autoencoder.encode(datas)
