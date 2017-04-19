@@ -1,3 +1,4 @@
+#coding = utf-8
 from mpl_toolkits.mplot3d import Axes3D
 from autoencoder import AutoEncoder, DataIterator
 import codecs
@@ -39,14 +40,13 @@ iterator = DataIterator(datas, labels = labels)
 # train autoencoder
 # assume the input dimension is input_d
 # the network is like input_d -> 4 -> 2 -> 4 -> input_d
-autoencoder = AutoEncoder()
+autoencoder = AutoEncoder([4, 2], learning_rate = 0.02, 
+                        fine_tuning = True, class_num = iterator.class_num,
+                        fine_tuning_learning_rate = 0.02)
+
 # train autoencoder without fine-tuning
 print "\ntrain autoencoder without fine-tuning ==========\n"
-autoencoder.fit([4, 2], 
-		iterator, 
-		learning_rate = 0.02, 
-		max_epoch = 10000, 
-		)
+autoencoder.fit(iterator, max_epoch = 10000)
 
 # encode data (without fine-tuning)
 encoded_datas = autoencoder.encode(datas)
@@ -55,12 +55,7 @@ print encoded_datas
 
 # train autoencoder with fine-tuning
 print "\ntrain autoencoder with fine-tuning ==========\n"
-autoencoder.fit([4, 2], 
-		iterator, 
-		fine_tuning = True,
-		learning_rate = 0.02, 
-		max_epoch = 5000, 
-		fine_tuning_max_epoch = 4000)
+autoencoder.fine_tune(iterator, max_epoch = 6000)
 
 # encode data (with fine-tuning)
 tuned_encoded_datas = autoencoder.encode(datas)
@@ -78,6 +73,7 @@ error_count = len(np.where(eval_array == False)[0])
 correct_rate = float(correct_count)/(correct_count + error_count)
 error_rate = float(error_count)/(correct_count + error_count)
 print "correct: {}({})\terror: {}({})".format(correct_count, "%.2f" % correct_rate, error_count, "%.2f" % error_rate)
+autoencoder.close()
 
 #visualize encoded datas
 colors = ["red", "green", "blue"]

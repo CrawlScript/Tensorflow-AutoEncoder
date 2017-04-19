@@ -14,6 +14,7 @@ Some tutorials require:
 ### Tutorial
 
 ```python
+#coding = utf-8
 from autoencoder import AutoEncoder, DataIterator
 
 # train data
@@ -28,8 +29,8 @@ iterator = DataIterator(datas)
 # train autoencoder
 # assume the input dimension is input_d
 # the network is like input_d -> 4 -> 2 -> 4 -> input_d
-autoencoder = AutoEncoder()
-autoencoder.fit([4, 2], iterator, learning_rate = 0.01, max_epoch = 5000)
+autoencoder = AutoEncoder([4, 2], learning_rate = 0.01)
+autoencoder.fit(iterator, max_epoch = 5000)
 
 # after training
 
