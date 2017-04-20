@@ -1,5 +1,5 @@
 # Tensorflow-AutoEncoder
-AutoEncoder implemented in Tensorflow
+Stacked AutoEncoder implemented in Tensorflow
 
 ### Requirement
 
@@ -29,8 +29,9 @@ iterator = DataIterator(datas)
 # train autoencoder
 # assume the input dimension is input_d
 # the network is like input_d -> 4 -> 2 -> 4 -> input_d
-autoencoder = AutoEncoder([4, 2], learning_rate = 0.01)
-autoencoder.fit(iterator, max_epoch = 5000)
+autoencoder = AutoEncoder()
+autoencoder.fit([4, 2], iterator, stacked = True, learning_rate = 0.1, max_epoch = 5000)
+autoencoder.fine_tune(iterator, learning_rate = 0.1, supervised = False)
 
 # after training
 
@@ -52,7 +53,7 @@ print reconstructed_datas
 autoencoder.close()
 ```
 
-### Iris Example
+### Example of Stacked AutoEncoder with Supervised Fine-Tuning
 
 [tutorial_iris.py](https://github.com/CrawlScript/Tensorflow-AutoEncoder/blob/master/tutorial_iris.py) encodes iris datasets(3 features) to a 2 features datasets.
 

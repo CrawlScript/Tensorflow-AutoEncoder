@@ -13,8 +13,9 @@ iterator = DataIterator(datas)
 # train autoencoder
 # assume the input dimension is input_d
 # the network is like input_d -> 4 -> 2 -> 4 -> input_d
-autoencoder = AutoEncoder([4, 2], learning_rate = 0.01)
-autoencoder.fit(iterator, max_epoch = 5000)
+autoencoder = AutoEncoder()
+autoencoder.fit([4, 2], iterator, stacked = True, learning_rate = 0.1, max_epoch = 5000)
+autoencoder.fine_tune(iterator, learning_rate = 0.1, supervised = False)
 
 # after training
 

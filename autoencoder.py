@@ -49,39 +49,48 @@ def default_cost_listener(epoch, batch_index, cost_value):
 
 class AutoEncoder(object):
 
-    # neuron_nums is the number of neuron for each hidden layer
-    # the number of neuron of input layer and decoder is excluded
-    def __init__(self,
-                neuron_nums,
-                learning_rate = 0.01,
-
-                fine_tuning = False,
-                class_num = None,
-                fine_tuning_learning_rate = 0.01
-
-                ):
-        if fine_tuning and class_num == None:
-            raise Exception("Please provide class_num when fine_tuning is True")
-
-        self.ws = neuron_nums
-        self.fine_tuning = fine_tuning
-        self.class_num = class_num
-
-        self.learning_rate = learning_rate
-        self.fine_tuning_learning_rate = fine_tuning_learning_rate
-
     def on_cost_computed(self, epoch, batch_index, cost_value):
         if epoch % 20 ==0 and batch_index % 10 == 0:
             print "epoch: {} batch: {} cost: {}".format(epoch, batch_index, cost_value)
 
-
     def fine_tune(self,
                 ite,
-                keep_prob = 1.0,
+                learning_rate = 0.01,
                 max_epoch = 1000,
+                supervised = False
                 ):
+        if supervised:
+            self.supervised_fine_tune(ite, learning_rate, max_epoch)
+        else:
+            self.unsupervised_fine_tune(ite, learning_rate, max_epoch)
 
-        print "\nstart fine tuning ============\n"
+    def unsupervised_fine_tune(self, ite, learning_rate, max_epoch):
+        print "\nstart unsupervised fine tuning ============\n"
+        self.sess.close()
+        self.init_tf_vars(reuse = True)
+        self.build_base_structure()
+        self.optimize_cost(ite, learning_rate, max_epoch)
+        self.save_unstacked_params()
+
+    def supervised_fine_tune(self, ite, learning_rate, max_epoch):
+        print "\nstart supervised fine tuning ============\n"
+
+        self.sess.close()
+        self.init_tf_vars(reuse = True)
+        self.build_base_structure()
+        
+        ite.reset()
+        peek_batch = ite.next()
+        class_num = peek_batch[1].shape[1]
+        ite.reset()
+
+        self.fine_tune_outputs = self.build_fine_tuning(class_num)
+        fine_tune_outputs_holder = tf.placeholder(tf.float32, [None, class_num])
+        fine_tune_cost = tf.reduce_mean(-tf.reduce_sum(fine_tune_outputs_holder * tf.log(tf.clip_by_value(self.fine_tune_outputs, 1e-10, 1.0)), reduction_indices=1))
+        fine_tune_optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(fine_tune_cost)
+
+        self.init_session()
+
         for epoch in range(max_epoch):
             ite.reset()
             while ite.has_next():
@@ -89,90 +98,181 @@ class AutoEncoder(object):
                 batch_inputs, batch_labels = ite.next()
                 feed_dict = {
                         self.inputs_holder: batch_inputs,
-                        self.fine_tune_outputs_holder: batch_labels,
-                        self.keep_prob_holder: keep_prob
+                        fine_tune_outputs_holder: batch_labels
                         }
-                _, c = self.sess.run([self.fine_tune_optimizer, self.fine_tune_cost], feed_dict = feed_dict)
+                _, c = self.sess.run([fine_tune_optimizer, fine_tune_cost], feed_dict = feed_dict)
                 self.on_cost_computed(epoch, batch_index, c)
 
+        self.save_unstacked_params()
 
+    # neuron_nums is the number of neuron for each hidden layer
+    # the number of neuron of input layer and decoder is excluded
     def fit(self,
+            neuron_nums,
             ite,
-            keep_prob = 1.0,
+            learning_rate = 0.01,
             max_epoch = 1000,
+            stacked = False,
+            hidden_activation = "tanh"
             ):
+        #self.stacked = stacked
+        self.hidden_activation = hidden_activation
+        if stacked:
+            self.stacked_fit(neuron_nums, ite, learning_rate, max_epoch)
+        else:
+            self.unstacked_fit(neuron_nums, ite, learning_rate, max_epoch)
+
+    def stacked_fit(self, neuron_nums, ite, learning_rate, max_epoch):
+        self.ws = neuron_nums
+
         ite.reset()
         peek_batch = ite.next()
         self.input_dim = peek_batch[0].shape[1]
         ite.reset()
+
         self.ws = [self.input_dim] + self.ws
-        self.tf_vars = {}
-        self.tf_vars["encoder"] = []
-        self.tf_vars["decoder"] = []
 
-        self.init_parameters()
+        autoencoders = []
+
+        current_ite = ite
+        #train each layer greedily
+        for i in range(1, len(self.ws)):
+            print "\ntraining layer {}\n".format(i)
+            current_autoencoder = AutoEncoder()
+            if type(max_epoch) == list:
+                current_max_epoch = max_epoch[i - 1]
+            else:
+                current_max_epoch = max_epoch
+            current_autoencoder.fit([self.ws[i]], current_ite, hidden_activation = "sigmoid", 
+                    learning_rate = learning_rate, max_epoch = current_max_epoch)
+            current_outputs = None
+
+            current_ite.reset()
+            while current_ite.has_next():
+                #batch_index = ite.next_batch_index
+                batch_inputs, _ = current_ite.next()
+                batch_outputs = current_autoencoder.encode(batch_inputs)
+                if current_outputs == None:
+                    current_outputs = batch_outputs
+                else:
+                    current_outputs = np.concatenate((current_outputs, batch_outputs), 0)
+            print "************"
+            print current_outputs
+            current_ite = DataIterator(current_outputs)
+            current_autoencoder.close()
+            autoencoders.append(current_autoencoder)
+        self.save_stacked_params(autoencoders)
+
+        self.init_tf_vars(reuse = True)
+        self.build_base_structure()
+        self.init_session()
+
+    def init_session(self):
+        self.sess = tf.Session()
+        self.sess.run(tf.initialize_all_variables())
+
+
+    def build_base_structure(self):
         self.inputs_holder = tf.placeholder(tf.float32, [None, self.ws[0]])
-
-        self.keep_prob_holder = tf.placeholder(tf.float32)
-        self.inputs_holder = tf.nn.dropout(self.inputs_holder, self.keep_prob_holder)
         self.encoder = self.build_encoder(self.inputs_holder)
-
         self.generator_inputs_holder = tf.placeholder(tf.float32, [None, self.ws[-1]])
         self.generator = self.build_decoder(self.generator_inputs_holder)
         self.decoder = self.build_decoder(self.encoder)
-        self.cost = tf.reduce_mean(tf.pow(self.decoder - self.inputs_holder, 2))
 
 
-        if self.fine_tuning:
-            self.fine_tune_outputs = self.build_fine_tuning()
-            self.fine_tune_outputs_holder = tf.placeholder(tf.float32, [None, self.class_num])
-            self.fine_tune_cost = tf.reduce_mean(-tf.reduce_sum(self.fine_tune_outputs_holder * tf.log(self.fine_tune_outputs), reduction_indices=1))
-            self.fine_tune_optimizer = tf.train.AdamOptimizer(learning_rate = self.fine_tuning_learning_rate).minimize(self.fine_tune_cost)
-
-        optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate).minimize(self.cost)
-
-        init = tf.initialize_all_variables()
-        self.sess = tf.Session()
-        self.sess.run(init)
-        print "\nstart training autoencoder ============\n"
+    def optimize_cost(self, ite, learning_rate, max_epoch):
+        cost = tf.reduce_mean(tf.pow(self.decoder - self.inputs_holder, 2))
+        optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost)
+        self.init_session()
         for epoch in range(max_epoch):
             ite.reset()
             while ite.has_next():
                 batch_index = ite.next_batch_index
                 batch_inputs, _ = ite.next()
-                feed_dict = {self.inputs_holder: batch_inputs, self.keep_prob_holder: keep_prob}
-                _, c = self.sess.run([optimizer, self.cost], feed_dict = feed_dict)
+                feed_dict = {self.inputs_holder: batch_inputs}
+                _, c = self.sess.run([optimizer, cost], feed_dict = feed_dict)
                 self.on_cost_computed(epoch, batch_index, c)
 
-    def init_parameters(self):
+    def unstacked_fit(self, neuron_nums, ite, learning_rate, max_epoch):
+        self.ws = neuron_nums
+        ite.reset()
+        peek_batch = ite.next()
+        self.input_dim = peek_batch[0].shape[1]
+        ite.reset()
+        self.ws = [self.input_dim] + self.ws
+        self.init_tf_vars()
+        self.build_base_structure()
+        print "\nstart training autoencoder ============\n"
+        self.optimize_cost(ite, learning_rate, max_epoch)
+        self.save_unstacked_params()
+
+    def save_stacked_params(self, autoencoders):
+        self.params = {"encoder": [], "decoder": []}
+        for autoencoder in autoencoders:
+            self.params["encoder"].append(autoencoder.params["encoder"][0])
+            self.params["decoder"].append(autoencoder.params["decoder"][-1])
+        self.params["decoder"].reverse()
+
+    def save_unstacked_params(self):
+        self.params = {"encoder": [], "decoder": []}
+        for encoder_var in self.tf_vars["encoder"]:
+            W = self.sess.run(encoder_var["W"])
+            b = self.sess.run(encoder_var["b"])
+            self.params["encoder"].append({"W": W, "b": b})
+        for decoder_var in self.tf_vars["decoder"]:
+            W = self.sess.run(decoder_var["W"])
+            b = self.sess.run(decoder_var["b"])
+            self.params["decoder"].append({"W": W, "b": b})
+
+    def init_tf_vars(self, reuse = False):
+        self.tf_vars = {}
+        self.tf_vars["encoder"] = []
+        self.tf_vars["decoder"] = []
+        
         for i in range(len(self.ws) - 1):
-            W = tf.Variable(tf.truncated_normal([self.ws[i], self.ws[i + 1]]))
-            b = tf.Variable(tf.truncated_normal([self.ws[i + 1]]))
+            if not reuse:
+                W = tf.Variable(tf.truncated_normal([self.ws[i], self.ws[i + 1]]))
+                b = tf.Variable(tf.truncated_normal([self.ws[i + 1]]))
+            else:
+                param = self.params["encoder"][i]
+                W = tf.Variable(param["W"])
+                b = tf.Variable(param["b"])
             self.tf_vars["encoder"].append({"W": W, "b": b})
 
         for i in range(1, len(self.ws)):
-            W = tf.Variable(tf.truncated_normal([self.ws[-i], self.ws[-(i+1)]]))
-            b = tf.Variable(tf.truncated_normal([self.ws[-(i+1)]]))
+            if not reuse:
+                W = tf.Variable(tf.truncated_normal([self.ws[-i], self.ws[-(i+1)]]))
+                b = tf.Variable(tf.truncated_normal([self.ws[-(i+1)]]))
+            else:
+                param = self.params["decoder"][i - 1]
+                W = tf.Variable(param["W"])
+                b = tf.Variable(param["b"])
             self.tf_vars["decoder"].append({"W": W, "b": b})
 
 
     def build_encoder(self, inputs):
         encoder = inputs
-        for i, parameter in enumerate(self.tf_vars["encoder"]):
-            W = parameter["W"]
-            b = parameter["b"]
+        for i, param_var in enumerate(self.tf_vars["encoder"]):
+            W = param_var["W"]
+            b = param_var["b"]
             encoder = tf.matmul(encoder, W) + b
-            encoder = tf.nn.tanh(encoder)
+            if self.hidden_activation == "sigmoid":
+                encoder = tf.nn.sigmoid(encoder)
+            else:
+                encoder = tf.nn.tanh(encoder)
         return encoder
 
     def build_decoder(self, inputs):
         decoder = inputs
-        for i, parameter in enumerate(self.tf_vars["decoder"]):
-            W = parameter["W"]
-            b = parameter["b"]
+        for i, param_var in enumerate(self.tf_vars["decoder"]):
+            W = param_var["W"]
+            b = param_var["b"]
             decoder = tf.matmul(decoder, W) + b
             if i < len(self.tf_vars["decoder"]) - 1:
-                decoder = tf.nn.tanh(decoder)
+                if self.hidden_activation == "sigmoid":
+                    decoder = tf.nn.sigmoid(decoder)
+                else:
+                    decoder = tf.nn.tanh(decoder)
             else:
                 decoder = tf.nn.sigmoid(decoder)
         return decoder
@@ -181,7 +281,7 @@ class AutoEncoder(object):
 
 
     def encode(self, inputs):
-        feed_dict = {self.inputs_holder: inputs, self.keep_prob_holder: 1.0}
+        feed_dict = {self.inputs_holder: inputs}
         encoder_outputs = self.sess.run(self.encoder, feed_dict = feed_dict)
         return encoder_outputs
 
@@ -192,28 +292,24 @@ class AutoEncoder(object):
         return decoder_outputs
 
     def predict(self, inputs):
-        feed_dict = {self.inputs_holder: inputs, self.keep_prob_holder: 1.0}
+        feed_dict = {self.inputs_holder: inputs}
         predicted_outputs = self.sess.run(self.fine_tune_outputs, feed_dict = feed_dict)
         return predicted_outputs
 
     def reconstruct(self, inputs):
-        feed_dict = {self.inputs_holder: inputs, self.keep_prob_holder: 1.0}
+        feed_dict = {self.inputs_holder: inputs}
         reconstruct_outputs = self.sess.run(self.decoder, feed_dict = feed_dict)
         return reconstruct_outputs
 
-    def build_fine_tuning(self):
+    def build_fine_tuning(self, class_num):
         self.tf_vars["output"] = {}
-        W = tf.Variable(tf.truncated_normal([self.ws[-1], self.class_num]), name="W")
-        b = tf.Variable(tf.truncated_normal([self.class_num]))
+        W = tf.Variable(tf.truncated_normal([self.ws[-1], class_num]), name="W")
+        b = tf.Variable(tf.truncated_normal([class_num]))
         self.tf_vars["output"]["W"] = W
         self.tf_vars["output"]["b"] = b
         fine_tune_outputs = tf.matmul(self.encoder, W) + b
         fine_tune_outputs = tf.nn.softmax(fine_tune_outputs)
         return fine_tune_outputs
-
-
-
-
 
 
     def close(self):

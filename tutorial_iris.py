@@ -41,13 +41,11 @@ fine_tuning_iterator = DataIterator(datas, labels = labels)
 # train autoencoder
 # assume the input dimension is input_d
 # the network is like input_d -> 4 -> 2 -> 4 -> input_d
-autoencoder = AutoEncoder([4, 2], learning_rate = 0.02, 
-                        fine_tuning = True, class_num = fine_tuning_iterator.class_num,
-                        fine_tuning_learning_rate = 0.02)
+autoencoder = AutoEncoder()
 
 # train autoencoder without fine-tuning
 print "\ntrain autoencoder without fine-tuning ==========\n"
-autoencoder.fit(iterator, max_epoch = 10000)
+autoencoder.fit([4, 2], iterator, stacked = True, learning_rate = 0.02, max_epoch = 5000)
 
 # encode data (without fine-tuning)
 encoded_datas = autoencoder.encode(datas)
@@ -56,7 +54,7 @@ print encoded_datas
 
 # train autoencoder with fine-tuning
 print "\ntrain autoencoder with fine-tuning ==========\n"
-autoencoder.fine_tune(fine_tuning_iterator, max_epoch = 6000)
+autoencoder.fine_tune(fine_tuning_iterator, supervised = True, learning_rate = 0.02, max_epoch = 6000)
 
 # encode data (with fine-tuning)
 tuned_encoded_datas = autoencoder.encode(datas)
