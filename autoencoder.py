@@ -70,7 +70,7 @@ class AutoEncoder(object):
         print "\nstart unsupervised fine tuning ============\n"
         self.sess.close()
         self.init_tf_vars(reuse = True)
-        self.build_base_structure()
+        self.build_base_structure(keep_prob)
         self.optimize_cost(ite, learning_rate, max_epoch, keep_prob)
         self.save_unstacked_params()
 
@@ -79,7 +79,7 @@ class AutoEncoder(object):
 
         self.sess.close()
         self.init_tf_vars(reuse = True)
-        self.build_base_structure()
+        self.build_base_structure(keep_prob)
 
         ite.reset()
         peek_batch = ite.next()
@@ -170,7 +170,7 @@ class AutoEncoder(object):
         self.save_stacked_params(autoencoders)
 
         self.init_tf_vars(reuse = True)
-        self.build_base_structure()
+        self.build_base_structure(keep_prob)
         self.init_session()
 
     def init_session(self):
@@ -178,12 +178,18 @@ class AutoEncoder(object):
         self.sess.run(tf.initialize_all_variables())
 
 
-    def build_base_structure(self):
+    def build_base_structure(self, keep_prob):
         self.inputs_holder = tf.placeholder(tf.float32, [None, self.ws[0]])
         self.keep_prob = tf.placeholder(tf.float32)
-        self.noisy_inputs = tf.nn.dropout(self.inputs_holder, self.keep_prob)
-        # self.outputs_holder = tf.placeholder(tf.float32, [None, self.ws[0]])
-        self.encoder = self.build_encoder(self.noisy_inputs)
+        if keep_prob == 1.0:
+            use_dropout = False
+        else:
+            use_dropout = True
+        if use_dropout:
+            self.noisy_inputs = tf.nn.dropout(self.inputs_holder, self.keep_prob)
+            self.encoder = self.build_encoder(self.noisy_inputs)
+        else:
+            self.encoder = self.build_encoder(self.inputs_holder)
         self.generator_inputs_holder = tf.placeholder(tf.float32, [None, self.ws[-1]])
         self.generator = self.build_decoder(self.generator_inputs_holder)
         self.decoder = self.build_decoder(self.encoder)
@@ -219,7 +225,8 @@ class AutoEncoder(object):
         ite.reset()
         self.ws = [self.input_dim] + self.ws
         self.init_tf_vars()
-        self.build_base_structure()
+
+        self.build_base_structure(keep_prob)
         print "\nstart training autoencoder ============\n"
         self.optimize_cost(ite, learning_rate, max_epoch, keep_prob)
         self.save_unstacked_params()
