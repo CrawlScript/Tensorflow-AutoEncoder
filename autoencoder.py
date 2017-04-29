@@ -182,8 +182,7 @@ class AutoEncoder(object):
         self.inputs_holder = tf.placeholder(tf.float32, [None, self.ws[0]])
         self.keep_prob = tf.placeholder(tf.float32)
         self.noisy_inputs = tf.nn.dropout(self.inputs_holder, self.keep_prob)
-
-        self.outputs_holder = tf.placeholder(tf.float32, [None, self.ws[0]])
+        # self.outputs_holder = tf.placeholder(tf.float32, [None, self.ws[0]])
         self.encoder = self.build_encoder(self.noisy_inputs)
         self.generator_inputs_holder = tf.placeholder(tf.float32, [None, self.ws[-1]])
         self.generator = self.build_decoder(self.generator_inputs_holder)
@@ -204,11 +203,9 @@ class AutoEncoder(object):
             while ite.has_next():
                 batch_index = ite.next_batch_index
                 batch_inputs, _ = ite.next()
-                batch_outputs = batch_inputs
 
                 feed_dict = {
                     self.inputs_holder: batch_inputs,
-                    self.outputs_holder: batch_outputs,
                     self.keep_prob: keep_prob
                     }
                 _, c = self.sess.run([optimizer, cost], feed_dict = feed_dict)
