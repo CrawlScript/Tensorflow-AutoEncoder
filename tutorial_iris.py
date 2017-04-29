@@ -50,16 +50,17 @@ autoencoder.fit([4, 2], iterator, stacked = True, learning_rate = 0.02, max_epoc
 # encode data (without fine-tuning)
 encoded_datas = autoencoder.encode(datas)
 print "encoder (without fine-tuning) ================"
-print encoded_datas 
+print encoded_datas
 
 # train autoencoder with fine-tuning
 print "\ntrain autoencoder with fine-tuning ==========\n"
-autoencoder.fine_tune(fine_tuning_iterator, supervised = True, learning_rate = 0.02, max_epoch = 6000)
+autoencoder.fine_tune(fine_tuning_iterator, supervised = True, learning_rate = 0.02, max_epoch = 10000)
+#autoencoder.fine_tune(fine_tuning_iterator, supervised = False, learning_rate = 0.02, max_epoch = 6000)
 
 # encode data (with fine-tuning)
 tuned_encoded_datas = autoencoder.encode(datas)
 print "encoder (with fine-tuning)================"
-print tuned_encoded_datas 
+print tuned_encoded_datas
 
 # predict data( based on fine tuning )
 predicted_datas = autoencoder.predict(datas)
@@ -91,6 +92,3 @@ plot_tuned_2d = fig_tuned_2d.add_subplot(111)
 plot_tuned_2d.scatter(tuned_encoded_datas[:,0], tuned_encoded_datas[:,1], color = label_colors)
 
 plt.show()
-
-
-
