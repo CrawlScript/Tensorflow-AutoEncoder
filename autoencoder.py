@@ -59,27 +59,27 @@ class AutoEncoder(object):
                 learning_rate = 0.01,
                 max_epoch = 1000,
                 supervised = False,
-                keep_prob = 1.0
+                corrupt = 0
                 ):
         if supervised:
-            self.supervised_fine_tune(ite, learning_rate, max_epoch, keep_prob)
+            self.supervised_fine_tune(ite, learning_rate, max_epoch, corrupt)
         else:
-            self.unsupervised_fine_tune(ite, learning_rate, max_epoch, keep_prob)
+            self.unsupervised_fine_tune(ite, learning_rate, max_epoch, corrupt)
 
-    def unsupervised_fine_tune(self, ite, learning_rate, max_epoch, keep_prob):
+    def unsupervised_fine_tune(self, ite, learning_rate, max_epoch, corrupt):
         print "\nstart unsupervised fine tuning ============\n"
         self.sess.close()
         self.init_tf_vars(reuse = True)
-        self.build_base_structure(keep_prob)
-        self.optimize_cost(ite, learning_rate, max_epoch, keep_prob)
+        self.build_base_structure()
+        self.optimize_cost(ite, learning_rate, max_epoch, corrupt)
         self.save_unstacked_params()
 
-    def supervised_fine_tune(self, ite, learning_rate, max_epoch, keep_prob):
+    def supervised_fine_tune(self, ite, learning_rate, max_epoch, corrupt):
         print "\nstart supervised fine tuning ============\n"
 
         self.sess.close()
         self.init_tf_vars(reuse = True)
-        self.build_base_structure(keep_prob)
+        self.build_base_structure()
 
         ite.reset()
         peek_batch = ite.next()
@@ -98,11 +98,13 @@ class AutoEncoder(object):
             while ite.has_next():
                 batch_index = ite.next_batch_index
                 batch_inputs, batch_labels = ite.next()
-
+                batch_outputs = batch_inputs
+                if corrupt > 0:
+                    batch_inputs = self.corrupt_inputs(batch_inputs, corrupt)
                 feed_dict = {
                         self.inputs_holder: batch_inputs,
                         fine_tune_outputs_holder: batch_labels,
-                        self.keep_prob: keep_prob
+                        self.outputs_holder: batch_outputs
                         }
                 _, c = self.sess.run([fine_tune_optimizer, fine_tune_cost], feed_dict = feed_dict)
                 self.cost_listener(epoch, batch_index, c)
@@ -118,16 +120,16 @@ class AutoEncoder(object):
             max_epoch = 1000,
             stacked = False,
             hidden_activation = "tanh",
-            keep_prob = 1.0
+            corrupt = 0
             ):
         #self.stacked = stacked
         self.hidden_activation = hidden_activation
         if stacked:
-            self.stacked_fit(neuron_nums, ite, learning_rate, max_epoch, keep_prob)
+            self.stacked_fit(neuron_nums, ite, learning_rate, max_epoch, corrupt)
         else:
-            self.unstacked_fit(neuron_nums, ite, learning_rate, max_epoch, keep_prob)
+            self.unstacked_fit(neuron_nums, ite, learning_rate, max_epoch, corrupt)
 
-    def stacked_fit(self, neuron_nums, ite, learning_rate, max_epoch, keep_prob):
+    def stacked_fit(self, neuron_nums, ite, learning_rate, max_epoch, corrupt):
         self.hidden_activation = "sigmoid"
         self.ws = neuron_nums
 
@@ -150,7 +152,7 @@ class AutoEncoder(object):
             else:
                 current_max_epoch = max_epoch
             current_autoencoder.fit([self.ws[i]], current_ite, hidden_activation = "sigmoid",
-                    learning_rate = learning_rate, max_epoch = current_max_epoch, keep_prob = keep_prob)
+                    learning_rate = learning_rate, max_epoch = current_max_epoch, corrupt = corrupt)
             current_outputs = None
 
             current_ite.reset()
@@ -170,7 +172,7 @@ class AutoEncoder(object):
         self.save_stacked_params(autoencoders)
 
         self.init_tf_vars(reuse = True)
-        self.build_base_structure(keep_prob)
+        self.build_base_structure()
         self.init_session()
 
     def init_session(self):
@@ -178,30 +180,29 @@ class AutoEncoder(object):
         self.sess.run(tf.initialize_all_variables())
 
 
-    def build_base_structure(self, keep_prob):
+    def build_base_structure(self):
         self.inputs_holder = tf.placeholder(tf.float32, [None, self.ws[0]])
-        self.keep_prob = tf.placeholder(tf.float32)
-        if keep_prob == 1.0:
-            use_dropout = False
-        else:
-            use_dropout = True
-        if use_dropout:
-            self.noisy_inputs = tf.nn.dropout(self.inputs_holder, self.keep_prob)
-            self.encoder = self.build_encoder(self.noisy_inputs)
-        else:
-            self.encoder = self.build_encoder(self.inputs_holder)
+        # self.keep_prob = tf.placeholder(tf.float32)
+        self.outputs_holder = tf.placeholder(tf.float32, [None, self.ws[0]])
+        self.encoder = self.build_encoder(self.inputs_holder)
         self.generator_inputs_holder = tf.placeholder(tf.float32, [None, self.ws[-1]])
         self.generator = self.build_decoder(self.generator_inputs_holder)
         self.decoder = self.build_decoder(self.encoder)
 
-    # def corrupt_inputs(self, inputs, corrupt):
-        # noise_mask = np.random.rand(inputs.shape[0], inputs.shape[1]) - 0.5
-        # noise_mask[noise_mask > corrupt / 2] = 0
-        # noise_mask[noise_mask < -corrupt / 2] = 0
-        # return inputs + noise_mask
 
-    def optimize_cost(self, ite, learning_rate, max_epoch, keep_prob):
-        cost = tf.reduce_mean(tf.pow(self.decoder - self.inputs_holder, 2))
+    def corrupt_inputs(self, inputs, corrupt):
+        # noise_mask = np.random.rand(inputs.shape[0], inputs.shape[1])
+        # noise_mask[noise_mask > corrupt] = 0
+        corrupt_num = int(inputs.shape[0] * inputs.shape[1] * corrupt)
+        corrupt_rows = np.random.randint(0, inputs.shape[0], corrupt_num)
+        corrupt_cols = np.random.randint(0, inputs.shape[1], corrupt_num)
+        corrupted_inputs = inputs.copy()
+        corrupted_inputs[corrupt_rows, corrupt_cols] = 0
+        return corrupted_inputs
+        #return inputs + noise_mask - corrupt/2
+
+    def optimize_cost(self, ite, learning_rate, max_epoch, corrupt):
+        cost = tf.reduce_mean(tf.pow(self.decoder - self.outputs_holder, 2))
         optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost)
         self.init_session()
         for epoch in range(max_epoch):
@@ -209,15 +210,17 @@ class AutoEncoder(object):
             while ite.has_next():
                 batch_index = ite.next_batch_index
                 batch_inputs, _ = ite.next()
-
+                batch_outputs = batch_inputs
+                if corrupt > 0:
+                    batch_inputs = self.corrupt_inputs(batch_inputs, corrupt)
                 feed_dict = {
                     self.inputs_holder: batch_inputs,
-                    self.keep_prob: keep_prob
+                    self.outputs_holder: batch_outputs
                     }
                 _, c = self.sess.run([optimizer, cost], feed_dict = feed_dict)
                 self.cost_listener(epoch, batch_index, c)
 
-    def unstacked_fit(self, neuron_nums, ite, learning_rate, max_epoch, keep_prob):
+    def unstacked_fit(self, neuron_nums, ite, learning_rate, max_epoch, corrupt):
         self.ws = neuron_nums
         ite.reset()
         peek_batch = ite.next()
@@ -226,9 +229,9 @@ class AutoEncoder(object):
         self.ws = [self.input_dim] + self.ws
         self.init_tf_vars()
 
-        self.build_base_structure(keep_prob)
+        self.build_base_structure()
         print "\nstart training autoencoder ============\n"
-        self.optimize_cost(ite, learning_rate, max_epoch, keep_prob)
+        self.optimize_cost(ite, learning_rate, max_epoch, corrupt)
         self.save_unstacked_params()
 
     def save_stacked_params(self, autoencoders):
@@ -308,7 +311,7 @@ class AutoEncoder(object):
 
 
     def encode(self, inputs):
-        feed_dict = {self.inputs_holder: inputs, self.keep_prob: 1.0}
+        feed_dict = {self.inputs_holder: inputs}
         encoder_outputs = self.sess.run(self.encoder, feed_dict = feed_dict)
         return encoder_outputs
 
@@ -319,12 +322,12 @@ class AutoEncoder(object):
         return decoder_outputs
 
     def predict(self, inputs):
-        feed_dict = {self.inputs_holder: inputs, self.keep_prob: 1.0}
+        feed_dict = {self.inputs_holder: inputs}
         predicted_outputs = self.sess.run(self.fine_tune_outputs, feed_dict = feed_dict)
         return predicted_outputs
 
     def reconstruct(self, inputs):
-        feed_dict = {self.inputs_holder: inputs, self.keep_prob: 1.0}
+        feed_dict = {self.inputs_holder: inputs}
         reconstruct_outputs = self.sess.run(self.decoder, feed_dict = feed_dict)
         return reconstruct_outputs
 
