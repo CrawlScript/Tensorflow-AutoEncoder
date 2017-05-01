@@ -45,7 +45,7 @@ autoencoder = AutoEncoder()
 
 # train autoencoder without fine-tuning
 print "\ntrain autoencoder without fine-tuning ==========\n"
-autoencoder.fit([4, 2], iterator, stacked = True, learning_rate = 0.02, max_epoch = 5000)
+autoencoder.fit([4, 2], iterator, stacked = True, learning_rate = 0.02, max_epoch = 5000, tied = True)
 
 # encode data (without fine-tuning)
 encoded_datas = autoencoder.encode(datas)
@@ -54,7 +54,7 @@ print encoded_datas
 
 # train autoencoder with fine-tuning
 print "\ntrain autoencoder with fine-tuning ==========\n"
-autoencoder.fine_tune(fine_tuning_iterator, supervised = True, learning_rate = 0.02, max_epoch = 10000)
+autoencoder.fine_tune(fine_tuning_iterator, supervised = True, learning_rate = 0.02, max_epoch = 10000, tied = True)
 #autoencoder.fine_tune(fine_tuning_iterator, supervised = False, learning_rate = 0.02, max_epoch = 6000)
 
 # encode data (with fine-tuning)

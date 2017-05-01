@@ -59,26 +59,26 @@ class AutoEncoder(object):
                 learning_rate = 0.01,
                 max_epoch = 1000,
                 supervised = False,
-                corrupt = 0
+                corrupt = 0,
+                tied = False
                 ):
         if supervised:
-            self.supervised_fine_tune(ite, learning_rate, max_epoch, corrupt)
+            self.supervised_fine_tune(ite, learning_rate, max_epoch, corrupt, tied)
         else:
-            self.unsupervised_fine_tune(ite, learning_rate, max_epoch, corrupt)
+            self.unsupervised_fine_tune(ite, learning_rate, max_epoch, corrupt, tied)
 
-    def unsupervised_fine_tune(self, ite, learning_rate, max_epoch, corrupt):
+    def unsupervised_fine_tune(self, ite, learning_rate, max_epoch, corrupt, tied):
         print "\nstart unsupervised fine tuning ============\n"
         self.sess.close()
-        self.init_tf_vars(reuse = True)
+        self.init_tf_vars(reuse = True, tied = tied)
         self.build_base_structure()
         self.optimize_cost(ite, learning_rate, max_epoch, corrupt)
         self.save_unstacked_params()
 
-    def supervised_fine_tune(self, ite, learning_rate, max_epoch, corrupt):
+    def supervised_fine_tune(self, ite, learning_rate, max_epoch, corrupt, tied):
         print "\nstart supervised fine tuning ============\n"
-
         self.sess.close()
-        self.init_tf_vars(reuse = True)
+        self.init_tf_vars(reuse = True, tied = tied)
         self.build_base_structure()
 
         ite.reset()
@@ -120,16 +120,17 @@ class AutoEncoder(object):
             max_epoch = 1000,
             stacked = False,
             hidden_activation = "tanh",
-            corrupt = 0
+            corrupt = 0,
+            tied = False
             ):
         #self.stacked = stacked
         self.hidden_activation = hidden_activation
         if stacked:
-            self.stacked_fit(neuron_nums, ite, learning_rate, max_epoch, corrupt)
+            self.stacked_fit(neuron_nums, ite, learning_rate, max_epoch, corrupt, tied)
         else:
-            self.unstacked_fit(neuron_nums, ite, learning_rate, max_epoch, corrupt)
+            self.unstacked_fit(neuron_nums, ite, learning_rate, max_epoch, corrupt, tied)
 
-    def stacked_fit(self, neuron_nums, ite, learning_rate, max_epoch, corrupt):
+    def stacked_fit(self, neuron_nums, ite, learning_rate, max_epoch, corrupt, tied):
         self.hidden_activation = "sigmoid"
         self.ws = neuron_nums
 
@@ -152,7 +153,7 @@ class AutoEncoder(object):
             else:
                 current_max_epoch = max_epoch
             current_autoencoder.fit([self.ws[i]], current_ite, hidden_activation = "sigmoid",
-                    learning_rate = learning_rate, max_epoch = current_max_epoch, corrupt = corrupt)
+                    learning_rate = learning_rate, max_epoch = current_max_epoch, corrupt = corrupt, tied = tied)
             current_outputs = None
 
             current_ite.reset()
@@ -171,7 +172,7 @@ class AutoEncoder(object):
             autoencoders.append(current_autoencoder)
         self.save_stacked_params(autoencoders)
 
-        self.init_tf_vars(reuse = True)
+        self.init_tf_vars(reuse = True, tied = tied)
         self.build_base_structure()
         self.init_session()
 
@@ -220,14 +221,14 @@ class AutoEncoder(object):
                 _, c = self.sess.run([optimizer, cost], feed_dict = feed_dict)
                 self.cost_listener(epoch, batch_index, c)
 
-    def unstacked_fit(self, neuron_nums, ite, learning_rate, max_epoch, corrupt):
+    def unstacked_fit(self, neuron_nums, ite, learning_rate, max_epoch, corrupt, tied):
         self.ws = neuron_nums
         ite.reset()
         peek_batch = ite.next()
         self.input_dim = peek_batch[0].shape[1]
         ite.reset()
         self.ws = [self.input_dim] + self.ws
-        self.init_tf_vars()
+        self.init_tf_vars(reuse = False, tied = tied)
 
         self.build_base_structure()
         print "\nstart training autoencoder ============\n"
@@ -252,7 +253,7 @@ class AutoEncoder(object):
             b = self.sess.run(decoder_var["b"])
             self.params["decoder"].append({"W": W, "b": b})
 
-    def init_tf_vars(self, reuse = False):
+    def init_tf_vars(self, reuse, tied):
         self.tf_vars = {}
         self.tf_vars["encoder"] = []
         self.tf_vars["decoder"] = []
@@ -269,11 +270,17 @@ class AutoEncoder(object):
 
         for i in range(1, len(self.ws)):
             if not reuse:
-                W = tf.Variable(tf.truncated_normal([self.ws[-i], self.ws[-(i+1)]]))
+                if tied:
+                    W = tf.transpose(self.tf_vars["encoder"][-i]["W"])
+                else:
+                    W = tf.Variable(tf.truncated_normal([self.ws[-i], self.ws[-(i+1)]]))
                 b = tf.Variable(tf.truncated_normal([self.ws[-(i+1)]]))
             else:
                 param = self.params["decoder"][i - 1]
-                W = tf.Variable(param["W"])
+                if tied:
+                    W = tf.transpose(self.tf_vars["encoder"][-i]["W"])
+                else:
+                    W = tf.Variable(param["W"])
                 b = tf.Variable(param["b"])
             self.tf_vars["decoder"].append({"W": W, "b": b})
 
