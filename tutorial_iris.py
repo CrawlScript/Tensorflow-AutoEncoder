@@ -26,6 +26,7 @@ class IrisDataSet(object):
         # normalize datas
         self.datas = np.array(self.datas, dtype = np.float32)
         self.datas = self.datas/self.datas.max(0)
+        self.datas = self.datas * 2 - 1
 
         self.labels = [self.get_label_id(row_data[-1]) for row_data in str_datas]
 
@@ -45,7 +46,7 @@ autoencoder = AutoEncoder()
 
 # train autoencoder without fine-tuning
 print "\ntrain autoencoder without fine-tuning ==========\n"
-autoencoder.fit([4, 2], iterator, stacked = True, learning_rate = 0.02, max_epoch = 5000, tied = True)
+autoencoder.fit([4, 2], iterator, stacked = True, learning_rate = 0.02, max_epoch = 5000, tied = True, activation = "tanh")
 
 # encode data (without fine-tuning)
 encoded_datas = autoencoder.encode(datas)

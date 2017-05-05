@@ -119,19 +119,19 @@ class AutoEncoder(object):
             learning_rate = 0.01,
             max_epoch = 1000,
             stacked = False,
-            hidden_activation = "tanh",
+            activation = "tanh",
             corrupt = 0,
             tied = False
             ):
         #self.stacked = stacked
-        self.hidden_activation = hidden_activation
+        self.activation = activation
         if stacked:
             self.stacked_fit(neuron_nums, ite, learning_rate, max_epoch, corrupt, tied)
         else:
             self.unstacked_fit(neuron_nums, ite, learning_rate, max_epoch, corrupt, tied)
 
     def stacked_fit(self, neuron_nums, ite, learning_rate, max_epoch, corrupt, tied):
-        self.hidden_activation = "sigmoid"
+        #self.activation = "sigmoid"
         self.ws = neuron_nums
 
         ite.reset()
@@ -152,7 +152,7 @@ class AutoEncoder(object):
                 current_max_epoch = max_epoch[i - 1]
             else:
                 current_max_epoch = max_epoch
-            current_autoencoder.fit([self.ws[i]], current_ite, hidden_activation = "sigmoid",
+            current_autoencoder.fit([self.ws[i]], current_ite, activation = self.activation,
                     learning_rate = learning_rate, max_epoch = current_max_epoch, corrupt = corrupt, tied = tied)
             current_outputs = None
 
@@ -291,12 +291,12 @@ class AutoEncoder(object):
             W = param_var["W"]
             b = param_var["b"]
             encoder = tf.matmul(encoder, W) + b
-            if self.hidden_activation == "sigmoid":
+            if self.activation == "sigmoid":
                 encoder = tf.nn.sigmoid(encoder)
-            elif self.hidden_activation == "tanh":
+            elif self.activation == "tanh":
                 encoder = tf.nn.tanh(encoder)
             else:
-                raise Exception('Invalid Activation Function "{}"'.format(self.hidden_activation))
+                raise Exception('Invalid Activation Function "{}"'.format(self.activation))
         return encoder
 
     def build_decoder(self, inputs):
@@ -305,13 +305,12 @@ class AutoEncoder(object):
             W = param_var["W"]
             b = param_var["b"]
             decoder = tf.matmul(decoder, W) + b
-            if i < len(self.tf_vars["decoder"]) - 1:
-                if self.hidden_activation == "sigmoid":
-                    decoder = tf.nn.sigmoid(decoder)
-                else:
-                    decoder = tf.nn.tanh(decoder)
-            else:
+            if self.activation == "sigmoid":
                 decoder = tf.nn.sigmoid(decoder)
+            elif self.activation == "tanh":
+                decoder = tf.nn.tanh(decoder)
+            else:
+                raise Exception('Invalid Activation Function "{}"'.format(self.activation))
         return decoder
 
 
